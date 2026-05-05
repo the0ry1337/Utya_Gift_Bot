@@ -15,6 +15,7 @@ from aiogram.types import (
 
 import config
 from gifts import GIFTS, Gift
+from token_refresher import auto_refresh_loop
 from parsers.aggregator import fetch_all_prices, fetch_gift_prices, invalidate_cache, sort_by_best_deal
 from parsers.base import AggregatedPrice, Platform, PLATFORM_EMOJI
 
@@ -236,6 +237,13 @@ async def main() -> None:
     bot = Bot(token=config.BOT_TOKEN, parse_mode="HTML")
     dp = Dispatcher()
     dp.include_router(router)
+
+    if config.TELEGRAM_API_ID and config.TELEGRAM_API_HASH:
+        logger.info("Pyrogram configured — token auto-refresh is enabled")
+        asyncio.create_task(auto_refresh_loop())
+    else:
+        logger.info("Pyrogram not configured — token auto-refresh is disabled")
+
     logger.info("Starting Utya Gift Price Bot…")
     await dp.start_polling(bot, skip_updates=True)
 

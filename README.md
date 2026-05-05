@@ -8,40 +8,87 @@ Tracks prices for 24 Telegram gifts across **GetGems**, **Fragment**, **MRKT**, 
 
 - Python 3.10+
 - A Telegram bot token (from [@BotFather](https://t.me/BotFather))
-- *(Optional)* Auth tokens for MRKT, Portals, Tonnel — see [Extracting Tokens](#extracting-marketplace-tokens)
+- *(Optional but recommended)* Telegram API credentials for auto token refresh
 
 ---
 
-## Deployment
-
-### 1. Clone and set up
+## Quick start
 
 ```bash
 git clone https://github.com/the0ry1337/Utya_Gift_Bot.git
 cd Utya_Gift_Bot
 pip install -r requirements.txt
-```
-
-### 2. Configure environment
-
-```bash
 cp .env.example .env
-nano .env   # or use any text editor
 ```
 
-Fill in at minimum:
+Edit `.env` and fill in at minimum:
 
 ```
 BOT_TOKEN=123456789:AAFxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-Add marketplace tokens if you have them (see below). The bot works without them — it will show `—` for platforms where no token is set.
-
-### 3. Run
+Run:
 
 ```bash
 python bot.py
 ```
+
+The bot works immediately for **GetGems** and **Fragment** (no tokens needed).  
+MRKT, Portals, and Tonnel show `—` until their tokens are configured.
+
+---
+
+## Token Auto-Refresh (recommended)
+
+Instead of manually updating tokens every 24 hours, the bot can refresh them automatically every 20 hours using **Pyrogram** — a Telegram MTProto client that logs in as your personal account and fetches fresh credentials from each marketplace mini-app.
+
+### Step 1 — Get Telegram API credentials
+
+1. Go to **https://my.telegram.org/apps** and sign in with your phone number.
+2. Click **"Create new application"**, fill in any name (e.g. `utya_bot`).
+3. Copy your **`api_id`** (a number) and **`api_hash`** (a hex string).
+
+### Step 2 — Add credentials to .env
+
+```
+TELEGRAM_API_ID=12345678
+TELEGRAM_API_HASH=abcdef1234567890abcdef1234567890abcdef12
+```
+
+### Step 3 — Create the session (one-time only)
+
+```bash
+python setup_auth.py
+```
+
+Pyrogram will ask for:
+- Your phone number (international format, e.g. `+79001234567`)
+- The OTP code Telegram sends you
+
+After entering the code you will see:
+
+```
+✅  Session created for John Doe @johndoe
+    File: utya_session.session
+```
+
+**This step happens only once.** The session file is saved to disk and reused silently on every subsequent run.
+
+### Step 4 — Start the bot normally
+
+```bash
+python bot.py
+```
+
+You will see in the logs:
+
+```
+Pyrogram configured — token auto-refresh is enabled
+```
+
+On first start, if any marketplace token is missing, a refresh runs automatically within 15 seconds. After that, tokens are refreshed every 20 hours with no action needed.
+
+> **Security note:** `utya_session.session` contains your Telegram session credentials. Keep it private — it is already listed in `.gitignore` and will never be committed.
 
 ---
 
@@ -61,13 +108,21 @@ cd /opt/utya_gift_bot
 pip install -r requirements.txt
 ```
 
-### 3. Create a systemd service
+### 3. Set up the session on the server
+
+If you created `utya_session.session` locally, copy it to the server:
+
+```bash
+scp utya_session.session user@your-server:/opt/utya_gift_bot/
+```
+
+Or run `python setup_auth.py` directly on the server.
+
+### 4. Create a systemd service
 
 ```bash
 sudo nano /etc/systemd/system/utya_gift_bot.service
 ```
-
-Paste this (adjust `User` and paths as needed):
 
 ```ini
 [Unit]
@@ -87,24 +142,24 @@ RestartSec=10
 WantedBy=multi-user.target
 ```
 
-### 4. Enable and start
+### 5. Enable and start
 
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable utya_gift_bot
 sudo systemctl start utya_gift_bot
 
-# Check logs
+# Follow logs
 sudo journalctl -u utya_gift_bot -f
 ```
 
 ---
 
-## Extracting Marketplace Tokens
+## Manual Token Extraction
 
-All three tokens are **Telegram Web App auth strings** extracted from the browser while the marketplace mini-app is open. They are valid for **at least 24 hours** and can be refreshed by repeating the steps below.
+If you prefer not to use Pyrogram, you can extract tokens manually from your browser. They need to be re-extracted every 24–48 hours.
 
-> **Use Chrome or any Chromium-based browser for these steps.**
+> Use Chrome or any Chromium-based browser.
 
 ---
 
@@ -113,18 +168,15 @@ All three tokens are **Telegram Web App auth strings** extracted from the browse
 **Website:** https://mrkt.fun
 
 1. Open https://mrkt.fun in your browser.
-2. Press **F12** to open DevTools, then go to the **Network** tab.
-3. In the filter bar, type `saling` to filter requests.
-4. In the MRKT interface, browse to any gift collection — this will trigger an API request.
-5. Click on the request named `saling` in the Network tab.
-6. Go to the **Headers** sub-tab and scroll to **Request Headers**.
-7. Find the `Authorization` header. Copy its full value (it looks like a long string, **without** the word `Authorization:`).
-8. Paste it into `.env`:
+2. Press **F12** → **Network** tab.
+3. In the filter bar type `saling`.
+4. Browse to any gift collection — this triggers an API request.
+5. Click the `saling` request → **Headers** → **Request Headers**.
+6. Find the `Authorization` header. Copy the full value (everything after `Authorization: `).
+7. Paste into `.env`:
    ```
    MRKT_TOKEN=<paste here>
    ```
-
-**Tip:** If no request appears, refresh the MRKT page while the Network tab is open.
 
 ---
 
@@ -134,14 +186,13 @@ All three tokens are **Telegram Web App auth strings** extracted from the browse
 
 1. Open https://portals-market.com in your browser.
 2. Press **F12** → **Network** tab.
-3. In the filter bar, type `nfts` to filter requests.
-4. Browse any gift listing — this triggers an API call.
-5. Click on a request to `portals-market.com/api/nfts/...` in the list.
-6. In the **Headers** sub-tab, find the `Authorization` header in **Request Headers**.
-7. Copy its full value. It starts with `tma ` followed by a long encoded string.
-8. Paste it into `.env`:
+3. In the filter bar type `nfts`.
+4. Browse any gift listing.
+5. Click a request to `portals-market.com/api/nfts/…` → **Headers** → **Request Headers**.
+6. Find the `Authorization` header. Its value starts with `tma `.
+7. Paste the full value into `.env`:
    ```
-   PORTALS_TOKEN=tma <paste the rest here>
+   PORTALS_TOKEN=tma eyJhbGci...
    ```
 
 ---
@@ -150,33 +201,16 @@ All three tokens are **Telegram Web App auth strings** extracted from the browse
 
 **Website:** https://market.tonnel.network
 
-Tonnel stores its auth token in the browser's **Local Storage** rather than in request headers.
+Tonnel stores its token in **Local Storage**, not in request headers.
 
 1. Open https://market.tonnel.network in your browser.
-2. Press **F12** → **Application** tab (in Chrome) or **Storage** tab (in Firefox).
-3. In the left sidebar expand **Local Storage** → click on `https://market.tonnel.network`.
-4. In the table, find the key named **`web-initData`**.
-5. Copy the full value from the **Value** column.
-6. Paste it into `.env`:
+2. Press **F12** → **Application** tab (Chrome) or **Storage** tab (Firefox).
+3. In the left sidebar expand **Local Storage** → click `https://market.tonnel.network`.
+4. Find the key **`web-initData`** in the table.
+5. Copy the full value and paste into `.env`:
    ```
    TONNEL_TOKEN=<paste here>
    ```
-
----
-
-## Token Refresh
-
-Tokens expire after some time (typically 24–48 hours). When a platform starts returning errors, repeat the extraction steps for that platform and update `.env`.
-
-After updating `.env`, restart the bot:
-
-```bash
-# Local
-Ctrl+C, then python bot.py again
-
-# systemd server
-sudo systemctl restart utya_gift_bot
-```
 
 ---
 
@@ -185,7 +219,10 @@ sudo systemctl restart utya_gift_bot
 | Variable | Required | Description |
 |---|---|---|
 | `BOT_TOKEN` | ✅ Yes | From [@BotFather](https://t.me/BotFather) |
-| `MRKT_TOKEN` | No | Authorization header from mrkt.fun |
-| `PORTALS_TOKEN` | No | Authorization header from portals-market.com |
-| `TONNEL_TOKEN` | No | `web-initData` value from market.tonnel.network |
-| `CACHE_TTL` | No | Price cache lifetime in seconds (default: `300`) |
+| `TELEGRAM_API_ID` | For auto-refresh | From [my.telegram.org/apps](https://my.telegram.org/apps) |
+| `TELEGRAM_API_HASH` | For auto-refresh | From [my.telegram.org/apps](https://my.telegram.org/apps) |
+| `MRKT_TOKEN` | No | JWT from mrkt.fun (auto-refreshed) |
+| `PORTALS_TOKEN` | No | `tma …` from portals-market.com (auto-refreshed) |
+| `TONNEL_TOKEN` | No | `web-initData` from market.tonnel.network (auto-refreshed) |
+| `MRKT_APP_SHORT_NAME` | No | MRKT mini-app short name (default: `market`) |
+| `CACHE_TTL` | No | Price cache in seconds (default: `300`) |
