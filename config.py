@@ -18,4 +18,9 @@ TELEGRAM_API_HASH: str = os.getenv("TELEGRAM_API_HASH", "")
 # If MRKT token refresh fails, check the actual URL and update this value.
 MRKT_APP_SHORT_NAME: str = os.getenv("MRKT_APP_SHORT_NAME", "market")
 
+# Pyrogram string session — alternative to utya_session.session file.
+# Required on cloud platforms (Railway, Render, Fly.io) that have no persistent storage.
+# Generate it by running setup_auth.py locally and copying the printed SESSION_STRING.
+SESSION_STRING: str = os.getenv("SESSION_STRING", "")
+
 CACHE_TTL: int = int(os.getenv("CACHE_TTL", "300"))

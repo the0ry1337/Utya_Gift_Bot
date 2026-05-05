@@ -34,10 +34,22 @@ async def main() -> None:
         me = await client.get_me()
         name = f"{me.first_name or ''} {me.last_name or ''}".strip()
         uname = f"@{me.username}" if me.username else "(no username)"
-        print(f"\n✅  Session created for {name} {uname}")
-        print("    File: utya_session.session")
-        print("\nYou can now start the bot:  python bot.py")
-        print("Tokens will be refreshed automatically every 20 hours.")
+        session_string = await client.export_session_string()
+
+    print(f"\n✅  Session created for {name} {uname}")
+    print("    File: utya_session.session\n")
+
+    print("─" * 60)
+    print("SESSION_STRING (copy this for cloud platforms):")
+    print("─" * 60)
+    print(session_string)
+    print("─" * 60)
+    print(
+        "\nFor server/VPS deployment:  the .session file is used automatically.\n"
+        "For Railway / Render / Fly.io:  add SESSION_STRING to environment variables.\n"
+        "\nYou can now start the bot:  python bot.py\n"
+        "Tokens will be refreshed automatically every 20 hours."
+    )
 
 
 if __name__ == "__main__":

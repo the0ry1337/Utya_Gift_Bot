@@ -111,23 +111,32 @@ async def refresh_all_tokens() -> bool:
         logger.warning("TELEGRAM_API_ID / TELEGRAM_API_HASH not configured — skipping refresh")
         return False
 
-    if not Path(f"{SESSION_FILE}.session").exists():
+    session_string = getattr(config, "SESSION_STRING", "")
+    has_file = Path(f"{SESSION_FILE}.session").exists()
+
+    if not session_string and not has_file:
         logger.error(
-            "Pyrogram session not found (%s.session). "
-            "Run `python setup_auth.py` first.",
-            SESSION_FILE,
+            "No Pyrogram session found. "
+            "Run `python setup_auth.py` to create one, "
+            "or set SESSION_STRING in .env for cloud platforms."
         )
         return False
 
     refreshed: dict[str, str] = {}
     mrkt_short = getattr(config, "MRKT_APP_SHORT_NAME", "market")
 
+    client_kwargs: dict = {
+        "api_id": int(config.TELEGRAM_API_ID),
+        "api_hash": config.TELEGRAM_API_HASH,
+    }
+    if session_string:
+        client_kwargs["session_string"] = session_string
+        client_name = ":memory:"
+    else:
+        client_name = SESSION_FILE
+
     try:
-        async with Client(
-            SESSION_FILE,
-            api_id=int(config.TELEGRAM_API_ID),
-            api_hash=config.TELEGRAM_API_HASH,
-        ) as client:
+        async with Client(client_name, **client_kwargs) as client:
 
             # MRKT — initData → JWT exchange
             try:
